@@ -15,8 +15,31 @@ def get_issues():
         "id": issue.id,
         "title": issue.title,
         "description": issue.description,
-        "status": issue.status
+        "status": issue.status,
+        "tags": [{"id": tag.id, "name": tag.name} for tag in issue.tags]  # Include tags
     } for issue in issues])
+
+@main.route("/api/issues/<int:id>", methods=["PUT"])
+def update_issue(id):
+    data = request.get_json()
+    issue = Issue.query.get_or_404(id)
+    issue.title = data.get("title", issue.title)
+    issue.description = data.get("description", issue.description)
+    issue.status = data.get("status", issue.status)
+    db.session.commit()
+    return jsonify({
+        "id": issue.id,
+        "title": issue.title,
+        "description": issue.description,
+        "status": issue.status
+    })
+
+@main.route("/api/issues/<int:id>", methods=["DELETE"])
+def delete_issue(id):
+    issue = Issue.query.get_or_404(id)
+    db.session.delete(issue)
+    db.session.commit()
+    return jsonify({"message": "Issue deleted successfully"}), 204
 
 @main.route("/api/issues", methods=["POST"])
 def create_issue():
