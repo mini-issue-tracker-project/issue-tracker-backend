@@ -16,7 +16,9 @@ def get_issues():
         "title": issue.title,
         "description": issue.description,
         "status": issue.status,
-        "tags": [{"id": tag.id, "name": tag.name} for tag in issue.tags]  # Include tags
+        "priority": issue.priority,  # Include priority
+        "author": issue.author,  # Include author
+        "tags": [{"id": tag.id, "name": tag.name} for tag in issue.tags]
     } for issue in issues])
 
 @main.route("/api/issues/<int:id>", methods=["PUT"])
@@ -26,12 +28,16 @@ def update_issue(id):
     issue.title = data.get("title", issue.title)
     issue.description = data.get("description", issue.description)
     issue.status = data.get("status", issue.status)
+    issue.priority = data.get("priority", issue.priority)  # Update priority
+    issue.author = data.get("author", issue.author)  # Update author
     db.session.commit()
     return jsonify({
         "id": issue.id,
         "title": issue.title,
         "description": issue.description,
-        "status": issue.status
+        "status": issue.status,
+        "priority": issue.priority,  # Include priority
+        "author": issue.author  # Include author
     })
 
 @main.route("/api/issues/<int:id>", methods=["DELETE"])
@@ -47,7 +53,9 @@ def create_issue():
     new_issue = Issue(
         title=data["title"],
         description=data["description"],
-        status=data["status"]
+        status=data["status"],
+        priority=data.get("priority"),  # Handle priority
+        author=data.get("author")  # Handle author
     )
     db.session.add(new_issue)
     db.session.commit()
@@ -55,5 +63,7 @@ def create_issue():
         "id": new_issue.id,
         "title": new_issue.title,
         "description": new_issue.description,
-        "status": new_issue.status
+        "status": new_issue.status,
+        "priority": new_issue.priority,  # Include priority
+        "author": new_issue.author  # Include author
     }), 201

@@ -17,6 +17,7 @@ class Issue(db.Model):
     description = db.Column(db.Text, nullable=False)
     status = db.Column(db.String(50), nullable=False)
     priority = db.Column(db.String(50))
+    author = db.Column(db.String(120))
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
     assignee_id = db.Column(db.Integer, db.ForeignKey('users.id'))
