@@ -1,6 +1,7 @@
 from flask import Blueprint, jsonify, request
-from .models import Issue, Tag
-from . import db
+from .models import Issue, Tag, User
+from . import db, bcrypt, jwt
+from flask_jwt_extended import create_access_token
 
 main = Blueprint("main", __name__)
 
@@ -82,3 +83,50 @@ def create_issue():
 def get_tags():
     tags = Tag.query.all()
     return jsonify([{ "id": tag.id, "name": tag.name, "color": tag.color } for tag in tags])
+
+@main.route("/api/register", methods=["POST"])
+def register():
+    data = request.get_json()
+    name = data.get("name", "").strip()
+    email = data.get("email", "").strip()
+    password = data.get("password", "")
+    # Validate all fields are present and non-empty
+    if not name or not email or not password:
+        return jsonify({"error": "All fields (name, email, password) are required."}), 400
+    if User.query.filter_by(email=email).first():
+        return jsonify({"error": "Email already registered."}), 400
+    user = User(name=name, email=email, role='user')
+    user.set_password(password)
+    db.session.add(user)
+    db.session.commit()
+    access_token = create_access_token(identity=user.id)
+    return jsonify({
+        "access_token": access_token,
+        "user": {
+            "id": user.id,
+            "name": user.name,
+            "email": user.email,
+            "role": user.role
+        }
+    }), 201
+
+@main.route("/api/login", methods=["POST"])
+def login():
+    data = request.get_json()
+    email = data.get("email", "").strip()
+    password = data.get("password", "")
+    if not email or not password:
+        return jsonify({"error": "Email and password are required."}), 400
+    user = User.query.filter_by(email=email).first()
+    if not user or not user.check_password(password):
+        return jsonify({"error": "Invalid email or password."}), 401
+    access_token = create_access_token(identity=user.id)
+    return jsonify({
+        "access_token": access_token,
+        "user": {
+            "id": user.id,
+            "name": user.name,
+            "email": user.email,
+            "role": user.role
+        }
+    })

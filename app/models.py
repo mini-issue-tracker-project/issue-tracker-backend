@@ -1,14 +1,25 @@
 from datetime import datetime, timezone
 
 from . import db
+from flask_bcrypt import Bcrypt
 
 class User(db.Model):
     __tablename__ = 'users'
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(120), nullable=False)
     email = db.Column(db.String(120), unique=True, nullable=False)
+    password_hash = db.Column(db.String(128), nullable=False, server_default='')
+    role = db.Column(db.String(20), nullable=False, default='user')
     issues = db.relationship('Issue', back_populates='assignee')
     comments = db.relationship('Comment', back_populates='author')
+
+    def set_password(self, raw_password):
+        bcrypt = Bcrypt()
+        self.password_hash = bcrypt.generate_password_hash(raw_password).decode('utf-8')
+
+    def check_password(self, raw_password):
+        bcrypt = Bcrypt()
+        return bcrypt.check_password_hash(self.password_hash, raw_password)
 
 class Issue(db.Model):
     __tablename__ = 'issues'
