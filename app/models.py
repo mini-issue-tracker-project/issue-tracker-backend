@@ -10,7 +10,8 @@ class User(db.Model):
     email = db.Column(db.String(120), unique=True, nullable=False)
     password_hash = db.Column(db.String(128), nullable=False, server_default='')
     role = db.Column(db.String(20), nullable=False, default='user')
-    issues = db.relationship('Issue', back_populates='assignee')
+    issues = db.relationship('Issue', back_populates='author', foreign_keys='Issue.author_id')
+    assigned_issues = db.relationship('Issue', back_populates='assignee', foreign_keys='Issue.assignee_id')
     comments = db.relationship('Comment', back_populates='author')
 
     def set_password(self, raw_password):
@@ -28,11 +29,12 @@ class Issue(db.Model):
     description = db.Column(db.Text, nullable=False)
     status = db.Column(db.String(50), nullable=False)
     priority = db.Column(db.String(50))
-    author = db.Column(db.String(120))
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+    author_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    author    = db.relationship('User', back_populates='issues', foreign_keys=[author_id])
     assignee_id = db.Column(db.Integer, db.ForeignKey('users.id'))
-    assignee = db.relationship('User', back_populates='issues')
+    assignee = db.relationship('User', back_populates='assigned_issues', foreign_keys=[assignee_id])
     comments = db.relationship('Comment', back_populates='issue')
     tags = db.relationship('Tag', secondary='issues_tags', back_populates='issues')
 

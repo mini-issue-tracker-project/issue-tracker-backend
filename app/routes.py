@@ -1,7 +1,7 @@
 from flask import Blueprint, jsonify, request
 from .models import Issue, Tag, User
 from . import db, bcrypt, jwt
-from flask_jwt_extended import create_access_token
+from flask_jwt_extended import create_access_token, get_jwt_identity, jwt_required
 
 main = Blueprint("main", __name__)
 
@@ -12,17 +12,21 @@ def hello():
 @main.route("/api/issues", methods=["GET"])
 def get_issues():
     issues = Issue.query.all()
-    return jsonify([{
-        "id": issue.id,
-        "title": issue.title,
-        "description": issue.description,
-        "status": issue.status,
-        "priority": issue.priority,  # Include priority
-        "author": issue.author,  # Include author
-        "tags": [{"id": tag.id, "name": tag.name, "color": tag.color} for tag in issue.tags]  # Include color
-    } for issue in issues])
+    return jsonify([
+        {
+            "id": issue.id,
+            "title": issue.title,
+            "description": issue.description,
+            "status": issue.status,
+            "priority": issue.priority,
+            "author": {"id": issue.author.id, "name": issue.author.name} if issue.author else None,
+            "tags": [{"id": tag.id, "name": tag.name, "color": tag.color} for tag in issue.tags]
+        }
+        for issue in issues
+    ])
 
 @main.route("/api/issues/<int:id>", methods=["PUT"])
+@jwt_required()
 def update_issue(id):
     data = request.get_json()
     issue = Issue.query.get_or_404(id)
@@ -30,19 +34,20 @@ def update_issue(id):
     issue.description = data.get("description", issue.description)
     issue.status = data.get("status", issue.status)
     issue.priority = data.get("priority", issue.priority)  # Update priority
-    issue.author = data.get("author", issue.author)  # Update author
+    issue.author_id = get_jwt_identity()  # Ensure author_id comes from JWT
     # Handle tags
     tag_ids = data.get("tags", None)
     if tag_ids is not None:
         issue.tags = Tag.query.filter(Tag.id.in_(tag_ids)).all()
     db.session.commit()
+    author_obj = User.query.get(issue.author_id)
     return jsonify({
         "id": issue.id,
         "title": issue.title,
         "description": issue.description,
         "status": issue.status,
         "priority": issue.priority,  # Include priority
-        "author": issue.author,  # Include author
+        "author": {"id": author_obj.id, "name": author_obj.name} if author_obj else None,
         "tags": [{"id": tag.id, "name": tag.name, "color": tag.color} for tag in issue.tags]  # Include color
     })
 
@@ -53,7 +58,21 @@ def delete_issue(id):
     db.session.commit()
     return jsonify({"message": "Issue deleted successfully"}), 204
 
+@main.route("/api/issues/<int:id>", methods=["GET"])
+def get_issue(id):
+    issue = Issue.query.get_or_404(id)
+    return jsonify({
+        "id": issue.id,
+        "title": issue.title,
+        "description": issue.description,
+        "status": issue.status,
+        "priority": issue.priority,
+        "author": {"id": issue.author.id, "name": issue.author.name} if issue.author else None,
+        "tags": [{"id": tag.id, "name": tag.name, "color": tag.color} for tag in issue.tags]
+    })
+
 @main.route("/api/issues", methods=["POST"])
+@jwt_required()
 def create_issue():
     data = request.get_json()
     new_issue = Issue(
@@ -61,7 +80,7 @@ def create_issue():
         description=data["description"],
         status=data["status"],
         priority=data.get("priority"),  # Handle priority
-        author=data.get("author")  # Handle author
+        author_id=get_jwt_identity()
     )
     # Handle tags
     tag_ids = data.get("tags", [])
@@ -69,13 +88,14 @@ def create_issue():
         new_issue.tags = Tag.query.filter(Tag.id.in_(tag_ids)).all()
     db.session.add(new_issue)
     db.session.commit()
+    author_obj = User.query.get(new_issue.author_id)
     return jsonify({
         "id": new_issue.id,
         "title": new_issue.title,
         "description": new_issue.description,
         "status": new_issue.status,
         "priority": new_issue.priority,  # Include priority
-        "author": new_issue.author,  # Include author
+        "author": {"id": author_obj.id, "name": author_obj.name} if author_obj else None,
         "tags": [{"id": tag.id, "name": tag.name, "color": tag.color} for tag in new_issue.tags]  # Include color
     }), 201
 
@@ -99,7 +119,7 @@ def register():
     user.set_password(password)
     db.session.add(user)
     db.session.commit()
-    access_token = create_access_token(identity=user.id)
+    access_token = create_access_token(identity=str(user.id))
     return jsonify({
         "access_token": access_token,
         "user": {
@@ -120,7 +140,7 @@ def login():
     user = User.query.filter_by(email=email).first()
     if not user or not user.check_password(password):
         return jsonify({"error": "Invalid email or password."}), 401
-    access_token = create_access_token(identity=user.id)
+    access_token = create_access_token(identity=str(user.id))
     return jsonify({
         "access_token": access_token,
         "user": {
