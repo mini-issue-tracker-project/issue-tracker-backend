@@ -28,13 +28,17 @@ def get_issues():
 @main.route("/api/issues/<int:id>", methods=["PUT"])
 @jwt_required()
 def update_issue(id):
+    user_id = int(get_jwt_identity())
+    user = User.query.get_or_404(user_id)
     data = request.get_json()
     issue = Issue.query.get_or_404(id)
+    if user.role != 'admin' and issue.author_id != user_id:
+        return jsonify({'error': 'Forbidden'}), 403
     issue.title = data.get("title", issue.title)
     issue.description = data.get("description", issue.description)
     issue.status = data.get("status", issue.status)
     issue.priority = data.get("priority", issue.priority)  # Update priority
-    issue.author_id = get_jwt_identity()  # Ensure author_id comes from JWT
+    # Do NOT update issue.author_id here!
     # Handle tags
     tag_ids = data.get("tags", None)
     if tag_ids is not None:
@@ -52,8 +56,13 @@ def update_issue(id):
     })
 
 @main.route("/api/issues/<int:id>", methods=["DELETE"])
+@jwt_required()
 def delete_issue(id):
+    user_id = int(get_jwt_identity())
+    user = User.query.get_or_404(user_id)
     issue = Issue.query.get_or_404(id)
+    if user.role != 'admin' and issue.author_id != user_id:
+        return jsonify({'error': 'Forbidden'}), 403
     db.session.delete(issue)
     db.session.commit()
     return jsonify({"message": "Issue deleted successfully"}), 204
@@ -74,6 +83,8 @@ def get_issue(id):
 @main.route("/api/issues", methods=["POST"])
 @jwt_required()
 def create_issue():
+    user_id = int(get_jwt_identity())
+    user = User.query.get_or_404(user_id)
     data = request.get_json()
     new_issue = Issue(
         title=data["title"],
@@ -103,6 +114,50 @@ def create_issue():
 def get_tags():
     tags = Tag.query.all()
     return jsonify([{ "id": tag.id, "name": tag.name, "color": tag.color } for tag in tags])
+
+@main.route("/api/tags", methods=["POST"])
+@jwt_required()
+def create_tag():
+    user = User.query.get_or_404(int(get_jwt_identity()))
+    if user.role != 'admin':
+        return jsonify({'error': 'Forbidden'}), 403
+    data = request.get_json()
+    name = data.get('name', '').strip()
+    color = data.get('color', '').strip()
+    if not name or not color:
+        return jsonify({'error': 'Name and color are required.'}), 400
+    tag = Tag(name=name, color=color)
+    db.session.add(tag)
+    db.session.commit()
+    return jsonify({'id': tag.id, 'name': tag.name, 'color': tag.color}), 201
+
+@main.route("/api/tags/<int:id>", methods=["PUT"])
+@jwt_required()
+def update_tag(id):
+    user = User.query.get_or_404(int(get_jwt_identity()))
+    if user.role != 'admin':
+        return jsonify({'error': 'Forbidden'}), 403
+    tag = Tag.query.get_or_404(id)
+    data = request.get_json()
+    name = data.get('name')
+    color = data.get('color')
+    if name is not None:
+        tag.name = name.strip()
+    if color is not None:
+        tag.color = color.strip()
+    db.session.commit()
+    return jsonify({'id': tag.id, 'name': tag.name, 'color': tag.color})
+
+@main.route("/api/tags/<int:id>", methods=["DELETE"])
+@jwt_required()
+def delete_tag(id):
+    user = User.query.get_or_404(int(get_jwt_identity()))
+    if user.role != 'admin':
+        return jsonify({'error': 'Forbidden'}), 403
+    tag = Tag.query.get_or_404(id)
+    db.session.delete(tag)
+    db.session.commit()
+    return jsonify({'message': 'Tag deleted successfully'}), 204
 
 @main.route("/api/register", methods=["POST"])
 def register():
