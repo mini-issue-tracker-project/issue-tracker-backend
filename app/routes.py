@@ -1,5 +1,5 @@
 from flask import Blueprint, jsonify, request
-from .models import Issue, Tag, User
+from .models import Issue, Tag, User, Comment
 from . import db, bcrypt, jwt
 from flask_jwt_extended import create_access_token, get_jwt_identity, jwt_required
 
@@ -245,3 +245,130 @@ def login():
             "role": user.role
         }
     })
+
+@main.route("/api/issues/<int:issue_id>/comments", methods=["GET"])
+def get_comments(issue_id):
+    # Parse query params
+    try:
+        skip = int(request.args.get("skip", 0))
+    except (TypeError, ValueError):
+        skip = 0
+    try:
+        limit = int(request.args.get("limit", 10))
+    except (TypeError, ValueError):
+        limit = 10
+    
+    author_name = request.args.get("author_name")
+    start_date = request.args.get("start")
+    end_date = request.args.get("end")
+
+    # Build query
+    q = Comment.query.filter(Comment.issue_id == issue_id)
+    
+    if author_name:
+        # Join with User table to filter by name
+        q = q.join(User, Comment.author_id == User.id).filter(User.name.ilike(f"%{author_name}%"))
+    
+    if start_date:
+        try:
+            from datetime import datetime
+            start_dt = datetime.fromisoformat(start_date.replace('Z', '+00:00'))
+            q = q.filter(Comment.created_at >= start_dt)
+        except Exception:
+            pass
+    
+    if end_date:
+        try:
+            from datetime import datetime
+            end_dt = datetime.fromisoformat(end_date.replace('Z', '+00:00'))
+            q = q.filter(Comment.created_at <= end_dt)
+        except Exception:
+            pass
+    
+    total = q.count()
+    comments = q.offset(skip).limit(limit).all()
+
+    def serialize_comment(comment):
+        return {
+            "id": comment.id,
+            "content": comment.content,
+            "created_at": comment.created_at.isoformat(),
+            "author": {"id": comment.author.id, "name": comment.author.name} if comment.author else None
+        }
+
+    return jsonify({
+        "total_count": total,
+        "skip": skip,
+        "limit": limit,
+        "data": [serialize_comment(comment) for comment in comments]
+    })
+
+@main.route("/api/issues/<int:issue_id>/comments", methods=["POST"])
+@jwt_required()
+def create_comment(issue_id):
+    user_id = int(get_jwt_identity())
+    user = User.query.get_or_404(user_id)
+    data = request.get_json()
+    
+    if not data or not data.get("content"):
+        return jsonify({"error": "Content is required"}), 400
+    
+    new_comment = Comment(
+        issue_id=issue_id,
+        author_id=user_id,
+        content=data["content"]
+    )
+    
+    db.session.add(new_comment)
+    db.session.commit()
+    
+    return jsonify({
+        "id": new_comment.id,
+        "content": new_comment.content,
+        "created_at": new_comment.created_at.isoformat(),
+        "author": {"id": user.id, "name": user.name}
+    }), 201
+
+@main.route("/api/comments/<int:comment_id>", methods=["PUT"])
+@jwt_required()
+def update_comment(comment_id):
+    user_id = int(get_jwt_identity())
+    user = User.query.get_or_404(user_id)
+    comment = Comment.query.get_or_404(comment_id)
+    
+    if user.role != 'admin' and comment.author_id != user_id:
+        return jsonify({'error': 'Forbidden'}), 403
+    
+    data = request.get_json()
+    if not data or not data.get("content"):
+        return jsonify({"error": "Content is required"}), 400
+    
+    comment.content = data["content"]
+    db.session.commit()
+    
+    return jsonify({
+        "id": comment.id,
+        "content": comment.content,
+        "created_at": comment.created_at.isoformat(),
+        "author": {"id": comment.author.id, "name": comment.author.name} if comment.author else None
+    })
+
+@main.route("/api/comments/<int:comment_id>", methods=["DELETE"])
+@jwt_required()
+def delete_comment(comment_id):
+    user_id = int(get_jwt_identity())
+    user = User.query.get_or_404(user_id)
+    comment = Comment.query.get_or_404(comment_id)
+    
+    if user.role != 'admin' and comment.author_id != user_id:
+        return jsonify({'error': 'Forbidden'}), 403
+    
+    db.session.delete(comment)
+    db.session.commit()
+    
+    return jsonify({"message": "Comment deleted successfully"}), 204
+
+@main.route("/api/users", methods=["GET"])
+def get_users():
+    users = User.query.all()
+    return jsonify([{ "id": user.id, "name": user.name, "email": user.email } for user in users])
