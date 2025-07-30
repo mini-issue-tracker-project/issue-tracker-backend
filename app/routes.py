@@ -45,10 +45,9 @@ def get_issues():
     if tags_list:
         q = q.filter(Issue.tags.any(Tag.id.in_(tags_list)))
     total = q.count()
-    items = q.offset(skip).limit(limit).all()
+    items = q.order_by(Issue.updated_at.desc()).offset(skip).limit(limit).all()
 
     def serialize_issue(issue):
-        from .models import Comment
         comment_count = Comment.query.filter_by(issue_id=issue.id).count()
         return {
             "id": issue.id,
@@ -289,13 +288,14 @@ def get_comments(issue_id):
             pass
     
     total = q.count()
-    comments = q.offset(skip).limit(limit).all()
+    comments = q.order_by(Comment.updated_at.desc()).offset(skip).limit(limit).all()
 
     def serialize_comment(comment):
         return {
             "id": comment.id,
             "content": comment.content,
             "created_at": comment.created_at.isoformat(),
+            "updated_at": comment.updated_at.isoformat(),
             "author": {"id": comment.author.id, "name": comment.author.name} if comment.author else None
         }
 
@@ -329,6 +329,7 @@ def create_comment(issue_id):
         "id": new_comment.id,
         "content": new_comment.content,
         "created_at": new_comment.created_at.isoformat(),
+        "updated_at": new_comment.updated_at.isoformat(),
         "author": {"id": user.id, "name": user.name}
     }), 201
 
@@ -353,6 +354,7 @@ def update_comment(comment_id):
         "id": comment.id,
         "content": comment.content,
         "created_at": comment.created_at.isoformat(),
+        "updated_at": comment.updated_at.isoformat(),
         "author": {"id": comment.author.id, "name": comment.author.name} if comment.author else None
     })
 

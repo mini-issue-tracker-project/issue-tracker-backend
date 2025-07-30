@@ -55,7 +55,13 @@ class Comment(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     issue_id = db.Column(db.Integer, db.ForeignKey('issues.id'))
     content = db.Column(db.Text, nullable=False)
-    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    updated_at = db.Column(
+        db.DateTime,
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+        nullable=False
+    )
     author_id = db.Column(db.Integer, db.ForeignKey('users.id'))
     author = db.relationship('User', back_populates='comments')
     issue = db.relationship('Issue', back_populates='comments')
