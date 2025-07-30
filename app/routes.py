@@ -48,6 +48,8 @@ def get_issues():
     items = q.offset(skip).limit(limit).all()
 
     def serialize_issue(issue):
+        from .models import Comment
+        comment_count = Comment.query.filter_by(issue_id=issue.id).count()
         return {
             "id": issue.id,
             "title": issue.title,
@@ -55,7 +57,8 @@ def get_issues():
             "status": issue.status,
             "priority": issue.priority,
             "author": {"id": issue.author.id, "name": issue.author.name} if issue.author else None,
-            "tags": [{"id": tag.id, "name": tag.name, "color": tag.color} for tag in issue.tags]
+            "tags": [{"id": tag.id, "name": tag.name, "color": tag.color} for tag in issue.tags],
+            "comment_count": comment_count
         }
 
     return jsonify({
