@@ -11,9 +11,44 @@ def hello():
 
 @main.route("/api/issues", methods=["GET"])
 def get_issues():
-    issues = Issue.query.all()
-    return jsonify([
-        {
+    # Parse query params
+    try:
+        skip = int(request.args.get("skip", 0))
+    except (TypeError, ValueError):
+        skip = 0
+    try:
+        limit = int(request.args.get("limit", 5))
+    except (TypeError, ValueError):
+        limit = 5
+    status = request.args.get("status")
+    priority = request.args.get("priority")
+    author_id = request.args.get("author_id")
+    tags = request.args.get("tags")
+    tags_list = None
+    if tags:
+        try:
+            tags_list = [int(t) for t in tags.split(",") if t.strip()]
+        except Exception:
+            tags_list = None
+
+    # Build query
+    q = Issue.query
+    if status:
+        q = q.filter(Issue.status == status)
+    if priority:
+        q = q.filter(Issue.priority == priority)
+    if author_id:
+        try:
+            q = q.filter(Issue.author_id == int(author_id))
+        except Exception:
+            pass
+    if tags_list:
+        q = q.filter(Issue.tags.any(Tag.id.in_(tags_list)))
+    total = q.count()
+    items = q.offset(skip).limit(limit).all()
+
+    def serialize_issue(issue):
+        return {
             "id": issue.id,
             "title": issue.title,
             "description": issue.description,
@@ -22,8 +57,13 @@ def get_issues():
             "author": {"id": issue.author.id, "name": issue.author.name} if issue.author else None,
             "tags": [{"id": tag.id, "name": tag.name, "color": tag.color} for tag in issue.tags]
         }
-        for issue in issues
-    ])
+
+    return jsonify({
+        "total_count": total,
+        "skip": skip,
+        "limit": limit,
+        "data": [serialize_issue(issue) for issue in items]
+    })
 
 @main.route("/api/issues/<int:id>", methods=["PUT"])
 @jwt_required()
