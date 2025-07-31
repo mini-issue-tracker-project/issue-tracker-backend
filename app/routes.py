@@ -131,23 +131,48 @@ def get_issue(id):
 def create_issue():
     user_id = int(get_jwt_identity())
     user = User.query.get_or_404(user_id)
-    data = request.get_json()
-    status_id = data["status_id"]
+    data = request.get_json() or {}
+
+    title = data.get("title")
+    description = data.get("description", "")
+    status_id = data.get("status_id")
     priority_id = data.get("priority_id")
+
+    if not title:
+        return jsonify({"error": "Title is required."}), 400
+
+    if status_id is None:
+        return jsonify({"error": "status_id cannot be null."}), 400
+    if priority_id is None:
+        return jsonify({"error": "priority_id cannot be null."}), 400
+
+    try:
+        status_id = int(status_id)
+        priority_id = int(priority_id)
+    except (ValueError, TypeError):
+        return jsonify({"error": "status_id and priority_id must be integers."}), 400
+
+    status = Status.query.get(status_id)
+    if not status:
+        return jsonify({"error": "Invalid status_id."}), 400
+    priority = Priority.query.get(priority_id)
+    if not priority:
+        return jsonify({"error": "Invalid priority_id."}), 400
+
     new_issue = Issue(
-        title=data["title"],
-        description=data["description"],
+        title=title,
+        description=description,
         status_id=status_id,
         priority_id=priority_id,
         author_id=user_id
     )
-    # Handle tags
     tag_ids = data.get("tags", [])
     if tag_ids:
         new_issue.tags = Tag.query.filter(Tag.id.in_(tag_ids)).all()
     db.session.add(new_issue)
     db.session.commit()
     return jsonify(serialize_issue(new_issue)), 201
+
 
 @main.route("/api/tags", methods=["GET"])
 def get_tags():

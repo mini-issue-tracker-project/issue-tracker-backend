@@ -26,10 +26,10 @@ class Issue(db.Model):
     __tablename__ = 'issues'
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String(255), nullable=False)
-    description = db.Column(db.Text, nullable=False)
+    description = db.Column(db.Text, nullable=True)
     status_id   = db.Column(db.Integer, db.ForeignKey('statuses.id'), nullable=False)
     status      = db.relationship('Status')
-    priority_id = db.Column(db.Integer, db.ForeignKey('priorities.id'), nullable=True)
+    priority_id = db.Column(db.Integer, db.ForeignKey('priorities.id'), nullable=False)
     priority    = db.relationship('Priority')
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
