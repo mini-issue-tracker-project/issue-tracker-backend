@@ -395,11 +395,6 @@ def delete_comment(comment_id):
     
     return jsonify({"message": "Comment deleted successfully"}), 204
 
-@main.route("/api/users", methods=["GET"])
-def get_users():
-    users = User.query.all()
-    return jsonify([{ "id": user.id, "name": user.name, "email": user.email } for user in users])
-
 # --- Statuses CRUD ---
 @main.route('/api/statuses', methods=['GET'])
 def get_statuses():
@@ -501,3 +496,120 @@ def delete_priority(id):
     db.session.delete(priority)
     db.session.commit()
     return jsonify({'message': 'Priority deleted successfully'}), 204
+
+# --- User Profile Endpoints ---
+@main.route('/api/users/<int:id>', methods=['GET'])
+@jwt_required()
+def get_user_profile(id):
+    try:
+        current_user_id = int(get_jwt_identity())
+        current_user = User.query.get_or_404(current_user_id)
+        target_user = User.query.get_or_404(id)
+        
+        # Authorization: only the user themselves or an admin can view the profile
+        if current_user.role != 'admin' and current_user.id != target_user.id:
+            return jsonify({'error': 'Forbidden'}), 403
+        
+        # Get closed status for stats calculation
+        closed_status = Status.query.filter_by(name='closed').first()
+        closed_status_id = closed_status.id if closed_status else None
+        
+        # Calculate stats
+        total_issues = Issue.query.filter_by(author_id=target_user.id).count()
+        closed_issues = Issue.query.filter_by(author_id=target_user.id, status_id=closed_status_id).count() if closed_status_id else 0
+        total_comments = Comment.query.filter_by(author_id=target_user.id).count()
+        
+        # Get user's issues (compact form)
+        user_issues = Issue.query.filter_by(author_id=target_user.id).order_by(Issue.updated_at.desc()).limit(10).all()
+        my_issues = []
+        for issue in user_issues:
+            try:
+                my_issues.append({
+                    "id": issue.id,
+                    "title": issue.title,
+                    "created_at": issue.created_at.isoformat(),
+                    "updated_at": issue.updated_at.isoformat(),
+                    "status": {"id": issue.status.id, "name": issue.status.name} if issue.status else None,
+                    "priority": {"id": issue.priority.id, "name": issue.priority.name} if issue.priority else None
+                })
+            except Exception as e:
+                print(f"Error processing issue {issue.id}: {e}")
+                # Skip this issue if there's an error
+                continue
+        
+        # Get user's comments (compact form)
+        user_comments = Comment.query.filter_by(author_id=target_user.id).order_by(Comment.updated_at.desc()).limit(10).all()
+        my_comments = []
+        for comment in user_comments:
+            try:
+                my_comments.append({
+                    "id": comment.id,
+                    "content": comment.content,
+                    "updated_at": comment.updated_at.isoformat(),
+                    "issue": {"id": comment.issue.id, "title": comment.issue.title} if comment.issue else None
+                })
+            except Exception as e:
+                print(f"Error processing comment {comment.id}: {e}")
+                # Skip this comment if there's an error
+                continue
+        
+        return jsonify({
+            "id": target_user.id,
+            "name": target_user.name,
+            "email": target_user.email,
+            "role": target_user.role,
+            "stats": {
+                "total_issues": total_issues,
+                "closed_issues": closed_issues,
+                "total_comments": total_comments
+            },
+            "my_issues": my_issues,
+            "my_comments": my_comments
+        })
+    except Exception as e:
+        print(f"Error in get_user_profile for user {id}: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': 'Internal server error'}), 500
+
+@main.route('/api/users/<int:id>', methods=['PUT'])
+@jwt_required()
+def update_user_profile(id):
+    current_user_id = int(get_jwt_identity())
+    current_user = User.query.get_or_404(current_user_id)
+    target_user = User.query.get_or_404(id)
+    
+    # Authorization: only the user themselves or an admin can update the profile
+    if current_user.role != 'admin' and current_user.id != target_user.id:
+        return jsonify({'error': 'Forbidden'}), 403
+    
+    data = request.get_json() or {}
+    
+    # Update name if provided
+    if 'name' in data:
+        new_name = data['name'].strip()
+        if not new_name:
+            return jsonify({'error': 'Name cannot be empty'}), 400
+        target_user.name = new_name
+    
+    # Update password if provided
+    if 'password' in data:
+        new_password = data['password']
+        if not new_password:
+            return jsonify({'error': 'Password cannot be empty'}), 400
+        target_user.set_password(new_password)
+    
+    db.session.commit()
+    
+    # Return updated user info (excluding password hash)
+    return jsonify({
+        "id": target_user.id,
+        "name": target_user.name,
+        "email": target_user.email,
+        "role": target_user.role
+    })
+
+@main.route("/api/users", methods=["GET"])
+def get_users():
+    users = User.query.all()
+    return jsonify([{ "id": user.id, "name": user.name, "email": user.email } for user in users])
