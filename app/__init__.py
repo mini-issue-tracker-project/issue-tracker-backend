@@ -11,6 +11,8 @@ migrate = Migrate()
 bcrypt = Bcrypt()
 jwt = JWTManager()
 
+from . import models
+
 def create_app():
     
     app = Flask(__name__)
@@ -28,9 +30,5 @@ def create_app():
     jwt.init_app(app)
     from .routes import main
     app.register_blueprint(main)
-
-    # Create database tables
-    with app.app_context():
-        db.create_all()
 
     return app

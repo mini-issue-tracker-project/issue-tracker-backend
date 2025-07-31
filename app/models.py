@@ -27,8 +27,10 @@ class Issue(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String(255), nullable=False)
     description = db.Column(db.Text, nullable=False)
-    status = db.Column(db.String(50), nullable=False)
-    priority = db.Column(db.String(50))
+    status_id   = db.Column(db.Integer, db.ForeignKey('statuses.id'), nullable=False)
+    status      = db.relationship('Status')
+    priority_id = db.Column(db.Integer, db.ForeignKey('priorities.id'), nullable=True)
+    priority    = db.relationship('Priority')
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
     author_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
@@ -44,6 +46,16 @@ class Tag(db.Model):
     name = db.Column(db.String(100), nullable=False)
     color = db.Column(db.String(20))
     issues = db.relationship('Issue', secondary='issues_tags', back_populates='tags')
+
+class Status(db.Model):
+    __tablename__ = 'statuses'
+    id   = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(50), unique=True, nullable=False)
+
+class Priority(db.Model):
+    __tablename__ = 'priorities'
+    id   = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(50), unique=True, nullable=False)
 
 class IssueTag(db.Model):
     __tablename__ = 'issues_tags'
