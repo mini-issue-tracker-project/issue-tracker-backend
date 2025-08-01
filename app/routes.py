@@ -496,6 +496,21 @@ def update_status(id):
     db.session.commit()
     return jsonify({'id': status.id, 'name': status.name})
 
+@main.route('/api/statuses/<int:id>/usage', methods=['GET'])
+@jwt_required()
+def get_status_usage(id):
+    user = User.query.get_or_404(int(get_jwt_identity()))
+    if user.role != 'admin':
+        return jsonify({'error': 'Forbidden'}), 403
+    status = Status.query.get_or_404(id)
+    
+    affected_issues = Issue.query.filter_by(status_id=id).all()
+    return jsonify({
+        "status": {"id": status.id, "name": status.name},
+        "affected_issues": [{"id": issue.id, "title": issue.title} for issue in affected_issues],
+        "count": len(affected_issues)
+    })
+
 @main.route('/api/statuses/<int:id>', methods=['DELETE'])
 @jwt_required()
 def delete_status(id):
@@ -503,6 +518,16 @@ def delete_status(id):
     if user.role != 'admin':
         return jsonify({'error': 'Forbidden'}), 403
     status = Status.query.get_or_404(id)
+    
+    # Check if status is in use by any issues
+    affected_issues = Issue.query.filter_by(status_id=id).all()
+    if affected_issues:
+        return jsonify({
+            "error": "Cannot delete, in use",
+            "message": "Please change the statuses of these issues since they have the status that you want to delete.",
+            "affected_issues": [{"id": issue.id, "title": issue.title} for issue in affected_issues]
+        }), 409
+    
     db.session.delete(status)
     db.session.commit()
     return jsonify({'message': 'Status deleted successfully'}), 204
@@ -547,6 +572,21 @@ def update_priority(id):
     db.session.commit()
     return jsonify({'id': priority.id, 'name': priority.name})
 
+@main.route('/api/priorities/<int:id>/usage', methods=['GET'])
+@jwt_required()
+def get_priority_usage(id):
+    user = User.query.get_or_404(int(get_jwt_identity()))
+    if user.role != 'admin':
+        return jsonify({'error': 'Forbidden'}), 403
+    priority = Priority.query.get_or_404(id)
+    
+    affected_issues = Issue.query.filter_by(priority_id=id).all()
+    return jsonify({
+        "priority": {"id": priority.id, "name": priority.name},
+        "affected_issues": [{"id": issue.id, "title": issue.title} for issue in affected_issues],
+        "count": len(affected_issues)
+    })
+
 @main.route('/api/priorities/<int:id>', methods=['DELETE'])
 @jwt_required()
 def delete_priority(id):
@@ -554,6 +594,16 @@ def delete_priority(id):
     if user.role != 'admin':
         return jsonify({'error': 'Forbidden'}), 403
     priority = Priority.query.get_or_404(id)
+    
+    # Check if priority is in use by any issues
+    affected_issues = Issue.query.filter_by(priority_id=id).all()
+    if affected_issues:
+        return jsonify({
+            "error": "Cannot delete, in use",
+            "message": "Please change the priorities of these issues since they have the priority that you want to delete.",
+            "affected_issues": [{"id": issue.id, "title": issue.title} for issue in affected_issues]
+        }), 409
+    
     db.session.delete(priority)
     db.session.commit()
     return jsonify({'message': 'Priority deleted successfully'}), 204
