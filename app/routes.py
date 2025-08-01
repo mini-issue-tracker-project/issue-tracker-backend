@@ -15,7 +15,19 @@ def serialize_issue(issue):
         "priority": {"id": issue.priority.id, "name": issue.priority.name} if issue.priority else None,
         "author": {"id": issue.author.id, "name": issue.author.name} if issue.author else None,
         "tags": [{"id": tag.id, "name": tag.name, "color": tag.color} for tag in issue.tags],
+        "created_at": issue.created_at.isoformat() if issue.created_at else None,
+        "updated_at": issue.updated_at.isoformat() if issue.updated_at else None,
         "comment_count": comment_count
+    }
+
+def serialize_comment(comment):
+    return {
+        "id": comment.id,
+        "content": comment.content,
+        "created_at": comment.created_at.isoformat() if comment.created_at else None,
+        "updated_at": comment.updated_at.isoformat() if comment.updated_at else None,
+        "author": {"id": comment.author.id, "name": comment.author.name} if comment.author else None,
+        "issue": {"id": comment.issue.id, "title": comment.issue.title} if comment.issue else None
     }
 
 @main.route("/")
@@ -24,67 +36,60 @@ def hello():
 
 @main.route("/api/issues", methods=["GET"])
 def get_issues():
-    # Parse query params
     try:
-        skip = int(request.args.get("skip", 0))
-    except (TypeError, ValueError):
-        skip = 0
-    try:
-        limit = int(request.args.get("limit", 5))
-    except (TypeError, ValueError):
-        limit = 5
-    status_id = request.args.get("status_id")
-    priority_id = request.args.get("priority_id")
-    author_id = request.args.get("author_id")
-    tags = request.args.get("tags")
-    tags_list = None
-    if tags:
+        # Parse query params
         try:
-            tags_list = [int(t) for t in tags.split(",") if t.strip()]
-        except Exception:
-            tags_list = None
+            skip = int(request.args.get("skip", 0))
+        except (TypeError, ValueError):
+            skip = 0
+        try:
+            limit = int(request.args.get("limit", 5))
+        except (TypeError, ValueError):
+            limit = 5
+        status_id = request.args.get("status_id")
+        priority_id = request.args.get("priority_id")
+        author_id = request.args.get("author_id")
+        tags = request.args.get("tags")
+        tags_list = None
+        if tags:
+            try:
+                tags_list = [int(t) for t in tags.split(",") if t.strip()]
+            except Exception:
+                tags_list = None
 
-    # Build query
-    q = Issue.query
-    if status_id:
-        try:
-            q = q.filter(Issue.status_id == int(status_id))
-        except Exception:
-            pass
-    if priority_id:
-        try:
-            q = q.filter(Issue.priority_id == int(priority_id))
-        except Exception:
-            pass
-    if author_id:
-        try:
-            q = q.filter(Issue.author_id == int(author_id))
-        except Exception:
-            pass
-    if tags_list:
-        q = q.filter(Issue.tags.any(Tag.id.in_(tags_list)))
-    total = q.count()
-    items = q.order_by(Issue.updated_at.desc()).offset(skip).limit(limit).all()
+        # Build query
+        q = Issue.query
+        if status_id:
+            try:
+                q = q.filter(Issue.status_id == int(status_id))
+            except Exception:
+                pass
+        if priority_id:
+            try:
+                q = q.filter(Issue.priority_id == int(priority_id))
+            except Exception:
+                pass
+        if author_id:
+            try:
+                q = q.filter(Issue.author_id == int(author_id))
+            except Exception:
+                pass
+        if tags_list:
+            q = q.filter(Issue.tags.any(Tag.id.in_(tags_list)))
+        total = q.count()
+        items = q.order_by(Issue.updated_at.desc()).offset(skip).limit(limit).all()
 
-    def serialize_issue(issue):
-        comment_count = Comment.query.filter_by(issue_id=issue.id).count()
-        return {
-            "id": issue.id,
-            "title": issue.title,
-            "description": issue.description,
-            "status": {"id": issue.status.id, "name": issue.status.name} if issue.status else None,
-            "priority": {"id": issue.priority.id, "name": issue.priority.name} if issue.priority else None,
-            "author": {"id": issue.author.id, "name": issue.author.name} if issue.author else None,
-            "tags": [{"id": tag.id, "name": tag.name, "color": tag.color} for tag in issue.tags],
-            "comment_count": comment_count
-        }
-
-    return jsonify({
-        "total_count": total,
-        "skip": skip,
-        "limit": limit,
-        "data": [serialize_issue(issue) for issue in items]
-    })
+        return jsonify({
+            "total_count": total,
+            "skip": skip,
+            "limit": limit,
+            "data": [serialize_issue(issue) for issue in items]
+        })
+    except Exception as e:
+        print(f"Error in get_issues: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": "Internal server error"}), 500
 
 @main.route("/api/issues/<int:id>", methods=["PUT"])
 @jwt_required()
@@ -312,15 +317,6 @@ def get_comments(issue_id):
     total = q.count()
     comments = q.order_by(Comment.updated_at.desc()).offset(skip).limit(limit).all()
 
-    def serialize_comment(comment):
-        return {
-            "id": comment.id,
-            "content": comment.content,
-            "created_at": comment.created_at.isoformat(),
-            "updated_at": comment.updated_at.isoformat(),
-            "author": {"id": comment.author.id, "name": comment.author.name} if comment.author else None
-        }
-
     return jsonify({
         "total_count": total,
         "skip": skip,
@@ -379,6 +375,71 @@ def update_comment(comment_id):
         "updated_at": comment.updated_at.isoformat(),
         "author": {"id": comment.author.id, "name": comment.author.name} if comment.author else None
     })
+
+@main.route("/api/comments", methods=["GET"])
+@jwt_required()
+def get_all_comments():
+    try:
+        # Parse query params
+        try:
+            skip = int(request.args.get("skip", 0))
+        except (TypeError, ValueError):
+            skip = 0
+        try:
+            limit = int(request.args.get("limit", 10))
+        except (TypeError, ValueError):
+            limit = 10
+        
+        author_id = request.args.get("author_id")
+        issue_id = request.args.get("issue_id")
+        start_date = request.args.get("start")
+        end_date = request.args.get("end")
+
+        # Build query
+        q = Comment.query
+        
+        if author_id:
+            try:
+                q = q.filter(Comment.author_id == int(author_id))
+            except (ValueError, TypeError):
+                pass
+        
+        if issue_id:
+            try:
+                q = q.filter(Comment.issue_id == int(issue_id))
+            except (ValueError, TypeError):
+                pass
+        
+        if start_date:
+            try:
+                from datetime import datetime
+                start_dt = datetime.fromisoformat(start_date.replace('Z', '+00:00'))
+                q = q.filter(Comment.updated_at >= start_dt)
+            except Exception:
+                pass
+        
+        if end_date:
+            try:
+                from datetime import datetime
+                end_dt = datetime.fromisoformat(end_date.replace('Z', '+00:00'))
+                q = q.filter(Comment.updated_at <= end_dt)
+            except Exception:
+                pass
+        
+        total = q.count()
+        comments = q.order_by(Comment.updated_at.desc()).offset(skip).limit(limit).all()
+
+        return jsonify({
+            "total_count": total,
+            "skip": skip,
+            "limit": limit,
+            "data": [serialize_comment(comment) for comment in comments]
+        })
+    except Exception as e:
+        print(f"Error in get_all_comments: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": "Internal server error"}), 500
 
 @main.route("/api/comments/<int:comment_id>", methods=["DELETE"])
 @jwt_required()
@@ -510,14 +571,32 @@ def get_user_profile(id):
         if current_user.role != 'admin' and current_user.id != target_user.id:
             return jsonify({'error': 'Forbidden'}), 403
         
-        # Get closed status for stats calculation
-        closed_status = Status.query.filter_by(name='closed').first()
-        closed_status_id = closed_status.id if closed_status else None
+        # Get status_id from query params for dynamic filtering
+        status_id = request.args.get("status_id")
         
         # Calculate stats
         total_issues = Issue.query.filter_by(author_id=target_user.id).count()
-        closed_issues = Issue.query.filter_by(author_id=target_user.id, status_id=closed_status_id).count() if closed_status_id else 0
         total_comments = Comment.query.filter_by(author_id=target_user.id).count()
+        
+        # Calculate filtered issues count based on status_id
+        filtered_issues_count = 0
+        if status_id:
+            try:
+                filtered_issues_count = Issue.query.filter_by(
+                    author_id=target_user.id, 
+                    status_id=int(status_id)
+                ).count()
+            except (ValueError, TypeError):
+                # If status_id is invalid, default to 0
+                filtered_issues_count = 0
+        else:
+            # Default to "open" status if no status_id provided
+            open_status = Status.query.filter_by(name='open').first()
+            if open_status:
+                filtered_issues_count = Issue.query.filter_by(
+                    author_id=target_user.id, 
+                    status_id=open_status.id
+                ).count()
         
         # Get user's issues (compact form)
         user_issues = Issue.query.filter_by(author_id=target_user.id).order_by(Issue.updated_at.desc()).limit(10).all()
@@ -560,7 +639,7 @@ def get_user_profile(id):
             "role": target_user.role,
             "stats": {
                 "total_issues": total_issues,
-                "closed_issues": closed_issues,
+                "filtered_issues_count": filtered_issues_count,
                 "total_comments": total_comments
             },
             "my_issues": my_issues,
