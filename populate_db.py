@@ -24,7 +24,7 @@ def populate_database():
         description="There is a login bug we need to fix.",
         status="open",
         priority="high",
-        assignee=user1,
+        author=user1,
         tags=[tag_bug],
         comments=[
             Comment(author=user2, content="I noticed this happens only on mobile."),
@@ -37,7 +37,7 @@ def populate_database():
         description="The login page is not responsive on mobile devices.",
         status="open",
         priority="high",
-        assignee=user2,
+        author=user2,
         tags=[tag_bug, tag_enhancement],
         comments=[]
     )
@@ -47,7 +47,7 @@ def populate_database():
         description="Add dark mode support to the application.",
         status="in_progress",
         priority="medium",
-        assignee=user3,
+        author=user3,
         tags=[tag_feature, tag_ui],
         comments=[]
     )
@@ -57,7 +57,7 @@ def populate_database():
         description="Fix the typo in the About page.",
         status="closed",
         priority="low",
-        assignee=user2,
+        author=user2,
         tags=[tag_bug, tag_enhancement],
         comments=[]
     )

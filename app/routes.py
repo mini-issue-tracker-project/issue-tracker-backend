@@ -196,6 +196,10 @@ def create_tag():
     if not name or not color:
         return jsonify({'error': 'Name and color are required.'}), 400
     
+    # Check if tag name already exists
+    if Tag.query.filter_by(name=name).first():
+        return jsonify({'error': 'Tag name already exists.'}), 400
+    
     # Auto-assign display_order if not provided
     display_order = data.get('display_order')
     if display_order is None:
@@ -219,7 +223,12 @@ def update_tag(id):
     color = data.get('color')
     display_order = data.get('display_order')
     if name is not None:
-        tag.name = name.strip()
+        name = name.strip()
+        # Check if tag name already exists (excluding current tag)
+        existing_tag = Tag.query.filter_by(name=name).first()
+        if existing_tag and existing_tag.id != id:
+            return jsonify({'error': 'Tag name already exists.'}), 400
+        tag.name = name
     if color is not None:
         tag.color = color.strip()
     if display_order is not None:
