@@ -181,8 +181,8 @@ def create_issue():
 
 @main.route("/api/tags", methods=["GET"])
 def get_tags():
-    tags = Tag.query.all()
-    return jsonify([{ "id": tag.id, "name": tag.name, "color": tag.color } for tag in tags])
+    tags = Tag.query.order_by(Tag.display_order).all()
+    return jsonify([{ "id": tag.id, "name": tag.name, "color": tag.color, "display_order": tag.display_order } for tag in tags])
 
 @main.route("/api/tags", methods=["POST"])
 @jwt_required()
@@ -195,10 +195,17 @@ def create_tag():
     color = data.get('color', '').strip()
     if not name or not color:
         return jsonify({'error': 'Name and color are required.'}), 400
-    tag = Tag(name=name, color=color)
+    
+    # Auto-assign display_order if not provided
+    display_order = data.get('display_order')
+    if display_order is None:
+        max_order = db.session.query(db.func.max(Tag.display_order)).scalar() or 0
+        display_order = max_order + 1
+    
+    tag = Tag(name=name, color=color, display_order=display_order)
     db.session.add(tag)
     db.session.commit()
-    return jsonify({'id': tag.id, 'name': tag.name, 'color': tag.color}), 201
+    return jsonify({'id': tag.id, 'name': tag.name, 'color': tag.color, 'display_order': tag.display_order}), 201
 
 @main.route("/api/tags/<int:id>", methods=["PUT"])
 @jwt_required()
@@ -210,12 +217,18 @@ def update_tag(id):
     data = request.get_json()
     name = data.get('name')
     color = data.get('color')
+    display_order = data.get('display_order')
     if name is not None:
         tag.name = name.strip()
     if color is not None:
         tag.color = color.strip()
+    if display_order is not None:
+        try:
+            tag.display_order = int(display_order)
+        except (ValueError, TypeError):
+            return jsonify({'error': 'display_order must be an integer'}), 400
     db.session.commit()
-    return jsonify({'id': tag.id, 'name': tag.name, 'color': tag.color})
+    return jsonify({'id': tag.id, 'name': tag.name, 'color': tag.color, 'display_order': tag.display_order})
 
 @main.route("/api/tags/<int:id>", methods=["DELETE"])
 @jwt_required()
@@ -459,8 +472,8 @@ def delete_comment(comment_id):
 # --- Statuses CRUD ---
 @main.route('/api/statuses', methods=['GET'])
 def get_statuses():
-    statuses = Status.query.all()
-    return jsonify([{ 'id': s.id, 'name': s.name } for s in statuses])
+    statuses = Status.query.order_by(Status.display_order).all()
+    return jsonify([{ 'id': s.id, 'name': s.name, 'display_order': s.display_order } for s in statuses])
 
 @main.route('/api/statuses', methods=['POST'])
 @jwt_required()
@@ -474,10 +487,17 @@ def create_status():
         return jsonify({'error': 'Name is required.'}), 400
     if Status.query.filter_by(name=name).first():
         return jsonify({'error': 'Status already exists.'}), 400
-    status = Status(name=name)
+    
+    # Auto-assign display_order if not provided
+    display_order = data.get('display_order')
+    if display_order is None:
+        max_order = db.session.query(db.func.max(Status.display_order)).scalar() or 0
+        display_order = max_order + 1
+    
+    status = Status(name=name, display_order=display_order)
     db.session.add(status)
     db.session.commit()
-    return jsonify({'id': status.id, 'name': status.name}), 201
+    return jsonify({'id': status.id, 'name': status.name, 'display_order': status.display_order}), 201
 
 @main.route('/api/statuses/<int:id>', methods=['PUT'])
 @jwt_required()
@@ -488,13 +508,19 @@ def update_status(id):
     status = Status.query.get_or_404(id)
     data = request.get_json()
     name = data.get('name', '').strip()
+    display_order = data.get('display_order')
     if not name:
         return jsonify({'error': 'Name is required.'}), 400
     if Status.query.filter(Status.name == name, Status.id != id).first():
         return jsonify({'error': 'Status already exists.'}), 400
     status.name = name
+    if display_order is not None:
+        try:
+            status.display_order = int(display_order)
+        except (ValueError, TypeError):
+            return jsonify({'error': 'display_order must be an integer'}), 400
     db.session.commit()
-    return jsonify({'id': status.id, 'name': status.name})
+    return jsonify({'id': status.id, 'name': status.name, 'display_order': status.display_order})
 
 @main.route('/api/statuses/<int:id>/usage', methods=['GET'])
 @jwt_required()
@@ -535,8 +561,8 @@ def delete_status(id):
 # --- Priorities CRUD ---
 @main.route('/api/priorities', methods=['GET'])
 def get_priorities():
-    priorities = Priority.query.all()
-    return jsonify([{ 'id': p.id, 'name': p.name } for p in priorities])
+    priorities = Priority.query.order_by(Priority.display_order).all()
+    return jsonify([{ 'id': p.id, 'name': p.name, 'display_order': p.display_order } for p in priorities])
 
 @main.route('/api/priorities', methods=['POST'])
 @jwt_required()
@@ -550,10 +576,17 @@ def create_priority():
         return jsonify({'error': 'Name is required.'}), 400
     if Priority.query.filter_by(name=name).first():
         return jsonify({'error': 'Priority already exists.'}), 400
-    priority = Priority(name=name)
+    
+    # Auto-assign display_order if not provided
+    display_order = data.get('display_order')
+    if display_order is None:
+        max_order = db.session.query(db.func.max(Priority.display_order)).scalar() or 0
+        display_order = max_order + 1
+    
+    priority = Priority(name=name, display_order=display_order)
     db.session.add(priority)
     db.session.commit()
-    return jsonify({'id': priority.id, 'name': priority.name}), 201
+    return jsonify({'id': priority.id, 'name': priority.name, 'display_order': priority.display_order}), 201
 
 @main.route('/api/priorities/<int:id>', methods=['PUT'])
 @jwt_required()
@@ -564,13 +597,19 @@ def update_priority(id):
     priority = Priority.query.get_or_404(id)
     data = request.get_json()
     name = data.get('name', '').strip()
+    display_order = data.get('display_order')
     if not name:
         return jsonify({'error': 'Name is required.'}), 400
     if Priority.query.filter(Priority.name == name, Priority.id != id).first():
         return jsonify({'error': 'Priority already exists.'}), 400
     priority.name = name
+    if display_order is not None:
+        try:
+            priority.display_order = int(display_order)
+        except (ValueError, TypeError):
+            return jsonify({'error': 'display_order must be an integer'}), 400
     db.session.commit()
-    return jsonify({'id': priority.id, 'name': priority.name})
+    return jsonify({'id': priority.id, 'name': priority.name, 'display_order': priority.display_order})
 
 @main.route('/api/priorities/<int:id>/usage', methods=['GET'])
 @jwt_required()

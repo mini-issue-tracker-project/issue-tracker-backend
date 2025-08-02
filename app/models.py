@@ -45,17 +45,20 @@ class Tag(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
     color = db.Column(db.String(20))
+    display_order = db.Column(db.Integer, nullable=False, default=0)
     issues = db.relationship('Issue', secondary='issues_tags', back_populates='tags')
 
 class Status(db.Model):
     __tablename__ = 'statuses'
     id   = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(50), unique=True, nullable=False)
+    display_order = db.Column(db.Integer, nullable=False, default=0)
 
 class Priority(db.Model):
     __tablename__ = 'priorities'
     id   = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(50), unique=True, nullable=False)
+    display_order = db.Column(db.Integer, nullable=False, default=0)
 
 class IssueTag(db.Model):
     __tablename__ = 'issues_tags'
