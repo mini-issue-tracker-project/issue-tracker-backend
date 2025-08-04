@@ -111,6 +111,9 @@ def update_issue(id):
     tag_ids = data.get("tags", None)
     if tag_ids is not None:
         issue.tags = Tag.query.filter(Tag.id.in_(tag_ids)).all()
+        # Explicitly update the timestamp when tags are modified
+        from datetime import datetime, timezone
+        issue.updated_at = datetime.now(timezone.utc)
     db.session.commit()
     return jsonify(serialize_issue(issue))
 
@@ -362,6 +365,11 @@ def create_comment(issue_id):
         content=data["content"]
     )
     
+    # Update the parent issue's timestamp when a new comment is added
+    issue = Issue.query.get_or_404(issue_id)
+    from datetime import datetime, timezone
+    issue.updated_at = datetime.now(timezone.utc)
+    
     db.session.add(new_comment)
     db.session.commit()
     
@@ -388,6 +396,12 @@ def update_comment(comment_id):
         return jsonify({"error": "Content is required"}), 400
     
     comment.content = data["content"]
+    
+    # Update the parent issue's timestamp when a comment is updated
+    issue = Issue.query.get_or_404(comment.issue_id)
+    from datetime import datetime, timezone
+    issue.updated_at = datetime.now(timezone.utc)
+    
     db.session.commit()
     
     return jsonify({
@@ -472,6 +486,11 @@ def delete_comment(comment_id):
     
     if user.role != 'admin' and comment.author_id != user_id:
         return jsonify({'error': 'Forbidden'}), 403
+    
+    # Update the parent issue's timestamp when a comment is deleted
+    issue = Issue.query.get_or_404(comment.issue_id)
+    from datetime import datetime, timezone
+    issue.updated_at = datetime.now(timezone.utc)
     
     db.session.delete(comment)
     db.session.commit()
