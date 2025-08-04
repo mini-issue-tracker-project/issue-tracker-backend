@@ -18,8 +18,8 @@ def create_app():
     app = Flask(__name__)
     app.config.from_object(Config)
     # Optionally configure JWT token options here
-    # Enable CORS with specific origin
-    CORS(app, origins=["http://localhost:3000"], supports_credentials=True)
+    # Enable CORS with configurable origins
+    CORS(app, origins=app.config['ALLOWED_ORIGINS'], supports_credentials=True)
 
     # Initialize the app with the database
     db.init_app(app)
