@@ -34,6 +34,86 @@ def serialize_comment(comment):
 def hello():
     return "Hello from Issue Tracker backend!"
 
+@main.route("/ping")
+def ping():
+    return jsonify({"status": "ok", "message": "Backend is running!"})
+
+@main.route("/initialize-db", methods=["POST"])
+def initialize_database():
+    """
+    Initialize database with tables and seed data
+    Call this once after deployment: POST https://your-backend.onrender.com/initialize-db
+    """
+    try:
+        # Check if already initialized
+        if Status.query.first():
+            return jsonify({"status": "already_initialized", "message": "Database already has data"}), 200
+        
+        # Create Statuses
+        statuses = [
+            Status(name='Open', display_order=1),
+            Status(name='In Progress', display_order=2),
+            Status(name='Resolved', display_order=3),
+            Status(name='Closed', display_order=4),
+            Status(name='Reopened', display_order=5)
+        ]
+        db.session.add_all(statuses)
+        
+        # Create Priorities
+        priorities = [
+            Priority(name='Low', display_order=1),
+            Priority(name='Medium', display_order=2),
+            Priority(name='High', display_order=3),
+            Priority(name='Critical', display_order=4)
+        ]
+        db.session.add_all(priorities)
+        
+        # Create Tags
+        tags = [
+            Tag(name='bug', color='#ef4444', display_order=1),
+            Tag(name='feature', color='#22c55e', display_order=2),
+            Tag(name='enhancement', color='#3b82f6', display_order=3),
+            Tag(name='documentation', color='#8b5cf6', display_order=4),
+            Tag(name='ui', color='#06b6d4', display_order=5),
+            Tag(name='backend', color='#f59e0b', display_order=6),
+            Tag(name='frontend', color='#ec4899', display_order=7),
+            Tag(name='security', color='#dc2626', display_order=8),
+            Tag(name='performance', color='#10b981', display_order=9),
+            Tag(name='testing', color='#6366f1', display_order=10)
+        ]
+        db.session.add_all(tags)
+        
+        # Create Admin User
+        admin = User(name='Admin User', email='admin@example.com', role='admin')
+        admin.set_password('admin123')
+        db.session.add(admin)
+        
+        # Create Test User
+        user = User(name='Test User', email='user@example.com', role='user')
+        user.set_password('user123')
+        db.session.add(user)
+        
+        db.session.commit()
+        
+        return jsonify({
+            "status": "success",
+            "message": "Database initialized successfully!",
+            "data": {
+                "statuses": 5,
+                "priorities": 4,
+                "tags": 10,
+                "users": 2
+            },
+            "credentials": {
+                "admin": {"email": "admin@example.com", "password": "admin123"},
+                "user": {"email": "user@example.com", "password": "user123"}
+            }
+        }), 201
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"status": "error", "message": str(e)}), 500
+
 @main.route("/api/issues", methods=["GET"])
 def get_issues():
     try:
