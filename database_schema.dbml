@@ -1,0 +1,104 @@
+// Database Schema for Issue Tracker
+// Copy this content to https://dbdiagram.io/d to visualize the schema
+
+Table users {
+  id integer [primary key, increment]
+  name varchar(120) [not null]
+  email varchar(120) [unique, not null]
+  password_hash varchar(128) [not null]
+  role varchar(20) [not null, default: 'user', note: 'admin or user']
+  
+  Note: 'User accounts for authentication and issue tracking'
+}
+
+Table issues {
+  id integer [primary key, increment]
+  title varchar(255) [not null]
+  description text [null]
+  status_id integer [not null]
+  priority_id integer [not null]
+  author_id integer [not null]
+  created_at timestamp [not null, default: `now()`]
+  updated_at timestamp [not null, default: `now()`]
+  
+  indexes {
+    status_id
+    priority_id
+    author_id
+    created_at
+  }
+  
+  Note: 'Issues/tickets created by users'
+}
+
+Table statuses {
+  id integer [primary key, increment]
+  name varchar(50) [unique, not null, note: 'e.g., Open, In Progress, Closed']
+  display_order integer [not null, default: 0]
+  
+  Note: 'Available status options for issues'
+}
+
+Table priorities {
+  id integer [primary key, increment]
+  name varchar(50) [unique, not null, note: 'e.g., Low, Medium, High, Critical']
+  display_order integer [not null, default: 0]
+  
+  Note: 'Available priority levels for issues'
+}
+
+Table tags {
+  id integer [primary key, increment]
+  name varchar(100) [unique, not null, note: 'e.g., bug, feature, ui']
+  color varchar(20) [null, note: 'Hex color code for display']
+  display_order integer [not null, default: 0]
+  
+  Note: 'Tags for categorizing issues'
+}
+
+Table issues_tags {
+  issue_id integer [primary key]
+  tag_id integer [primary key]
+  
+  indexes {
+    (issue_id, tag_id) [pk]
+  }
+  
+  Note: 'Many-to-many relationship between issues and tags'
+}
+
+Table comments {
+  id integer [primary key, increment]
+  issue_id integer [not null]
+  author_id integer [not null]
+  content text [not null]
+  created_at timestamp [not null, default: `now()`]
+  updated_at timestamp [not null, default: `now()`]
+  
+  indexes {
+    issue_id
+    author_id
+    created_at
+  }
+  
+  Note: 'Comments on issues'
+}
+
+// Relationships Description:
+// - One User can create many Issues (author_id)
+// - One User can write many Comments (author_id)
+// - One Issue can have many Comments (issue_id)
+// - One Issue belongs to one Status (status_id)
+// - One Issue belongs to one Priority (priority_id)
+// - Issues and Tags have a many-to-many relationship through issues_tags
+// - CASCADE DELETE: When a user is deleted, their issues and comments are deleted
+// - CASCADE DELETE: When an issue is deleted, its comments and tag associations are deleted
+
+Ref: issues.author_id > users.id [delete: cascade]
+Ref: issues.status_id > statuses.id
+Ref: issues.priority_id > priorities.id
+Ref: comments.issue_id > issues.id [delete: cascade]
+Ref: comments.author_id > users.id [delete: cascade]
+Ref: issues_tags.issue_id > issues.id [delete: cascade]
+Ref: issues_tags.tag_id > tags.id [delete: cascade]
+
