@@ -29,7 +29,7 @@ def populate_demo_issues():
             print("❌ Error: Need at least 2 users in the database.")
             print("\nPlease either:")
             print("1. Sign up users through the web interface at http://localhost:3000")
-            print("2. Use the default users from seed_initial_data.sql")
+            print("2. Use the default users from scripts/seed_initial_data.sql")
             return
         
         print(f"✓ Found {len(users)} users:")

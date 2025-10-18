@@ -46,7 +46,7 @@ def init_database():
         
         print("\n📝 Next steps:")
         print("   1. Run: flask db stamp head")
-        print("   2. Load seed data: psql -U issuetracker -d issuetracker -f seed_initial_data.sql")
+        print("   2. Load seed data: psql -U issuetracker -d issuetracker -f scripts/seed_initial_data.sql")
         print("   3. (Optional) Load demo data: python scripts/populate_demo_data.py")
         print("   4. Start server: python run.py")
 
