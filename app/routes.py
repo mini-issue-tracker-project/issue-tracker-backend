@@ -117,6 +117,123 @@ def initialize_database():
         db.session.rollback()
         return jsonify({"status": "error", "message": str(e)}), 500
 
+@main.route("/add-demo-issues", methods=["POST"])
+def add_demo_issues():
+    """
+    Add 3 demo issues with comments for demonstration
+    Call after database is initialized: POST https://your-backend.onrender.com/add-demo-issues
+    """
+    try:
+        # Get existing users, statuses, priorities, tags
+        users = User.query.all()
+        if len(users) < 2:
+            return jsonify({"status": "error", "message": "Need at least 2 users. Initialize database first."}), 400
+        
+        status_open = Status.query.filter_by(name='Open').first()
+        status_in_progress = Status.query.filter_by(name='In Progress').first()
+        status_closed = Status.query.filter_by(name='Closed').first()
+        
+        priority_high = Priority.query.filter_by(name='High').first()
+        priority_medium = Priority.query.filter_by(name='Medium').first()
+        priority_low = Priority.query.filter_by(name='Low').first()
+        
+        tag_bug = Tag.query.filter_by(name='bug').first()
+        tag_feature = Tag.query.filter_by(name='feature').first()
+        tag_ui = Tag.query.filter_by(name='ui').first()
+        tag_backend = Tag.query.filter_by(name='backend').first()
+        
+        # Issue 1: Login bug
+        issue1 = Issue(
+            title='Login page not responsive on mobile',
+            description='Users report that the login page does not display correctly on mobile devices. The form inputs are too small and buttons are cut off.',
+            status_id=status_open.id,
+            priority_id=priority_high.id,
+            author_id=users[0].id
+        )
+        issue1.tags = [tag_bug, tag_ui]
+        db.session.add(issue1)
+        db.session.flush()
+        
+        comment1_1 = Comment(
+            issue_id=issue1.id,
+            author_id=users[1].id,
+            content='I can reproduce this on iOS Safari. The viewport seems to be misconfigured.'
+        )
+        comment1_2 = Comment(
+            issue_id=issue1.id,
+            author_id=users[0].id,
+            content='Working on a fix. Will add proper media queries for mobile screens.'
+        )
+        db.session.add_all([comment1_1, comment1_2])
+        
+        # Issue 2: New feature request
+        issue2 = Issue(
+            title='Add dark mode support',
+            description='Implement a dark mode theme for better user experience during night time. Should include a toggle button in the header.',
+            status_id=status_in_progress.id,
+            priority_id=priority_medium.id,
+            author_id=users[1].id
+        )
+        issue2.tags = [tag_feature, tag_ui]
+        db.session.add(issue2)
+        db.session.flush()
+        
+        comment2_1 = Comment(
+            issue_id=issue2.id,
+            author_id=users[0].id,
+            content='Great idea! I started working on the CSS variables for theming.'
+        )
+        comment2_2 = Comment(
+            issue_id=issue2.id,
+            author_id=users[1].id,
+            content='Should we persist the theme preference in localStorage or database?'
+        )
+        comment2_3 = Comment(
+            issue_id=issue2.id,
+            author_id=users[0].id,
+            content='Let\'s use localStorage for now to keep it simple.'
+        )
+        db.session.add_all([comment2_1, comment2_2, comment2_3])
+        
+        # Issue 3: Performance improvement
+        issue3 = Issue(
+            title='API response time is slow',
+            description='The issues list endpoint takes 3-4 seconds to respond. Need to optimize database queries and add proper indexing.',
+            status_id=status_closed.id,
+            priority_id=priority_low.id,
+            author_id=users[0].id
+        )
+        issue3.tags = [tag_backend]
+        db.session.add(issue3)
+        db.session.flush()
+        
+        comment3_1 = Comment(
+            issue_id=issue3.id,
+            author_id=users[1].id,
+            content='Added indexes on foreign keys. Response time improved to under 500ms.'
+        )
+        comment3_2 = Comment(
+            issue_id=issue3.id,
+            author_id=users[0].id,
+            content='Excellent work! Closing this issue.'
+        )
+        db.session.add_all([comment3_1, comment3_2])
+        
+        db.session.commit()
+        
+        return jsonify({
+            "status": "success",
+            "message": "Demo issues created successfully!",
+            "data": {
+                "issues_created": 3,
+                "comments_created": 7
+            }
+        }), 201
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"status": "error", "message": str(e)}), 500
+
 @main.route("/api/issues", methods=["GET"])
 def get_issues():
     try:
