@@ -46,9 +46,9 @@ def init_database():
         
         print("\n📝 Next steps:")
         print("   1. Run: flask db stamp head")
-        print("   2. Load seed data: psql -U issuetracker -d issuetracker -f scripts/seed_initial_data.sql")
-        print("   3. (Optional) Load demo data: python scripts/populate_demo_data.py")
-        print("   4. Start server: python run.py")
+        print("   2. Start server: python run.py")
+        print("   3. Initialize data: POST http://localhost:5000/initialize-db")
+        print("   4. (Optional) Add demo issues: POST http://localhost:5000/add-demo-issues")
 
 if __name__ == "__main__":
     init_database()

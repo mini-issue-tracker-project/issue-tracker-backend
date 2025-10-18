@@ -49,28 +49,7 @@ JWT_SECRET_KEY=your-secret-key-here
 ALLOWED_ORIGINS=http://localhost:3000
 ```
 
-### 5. Initialize Database
-
-```powershell
-# Create tables
-python scripts/init_db.py
-
-# Mark migrations as complete
-flask db stamp head
-
-# Load initial data (statuses, priorities, tags, users)
-& $psql -U issuetracker -d issuetracker -f scripts/seed_initial_data.sql
-```
-
-Password: `issuetracker123`
-
-### 6. (Optional) Add Demo Data
-
-```powershell
-python scripts/populate_demo_data.py
-```
-
-### 7. Start Server
+### 5. Start Server
 
 ```powershell
 python run.py
@@ -78,40 +57,68 @@ python run.py
 
 Backend runs on: **http://localhost:5000**
 
+### 6. Initialize Database
+
+**Check backend is running:**
+```
+GET http://localhost:5000/ping
+```
+
+**Create tables and load initial data:**
+```
+POST http://localhost:5000/initialize-db
+```
+
+Response includes default user credentials:
+```json
+{
+  "status": "success",
+  "credentials": {
+    "admin": {"email": "admin@example.com", "password": "admin123"},
+    "user": {"email": "user@example.com", "password": "user123"}
+  }
+}
+```
+
+This endpoint:
+- Creates all database tables (users, issues, comments, tags, etc.)
+- Loads statuses, priorities, and tags
+- Creates admin and test users with properly hashed passwords
+
+**Add demo issues (optional):**
+```
+POST http://localhost:5000/add-demo-issues
+```
+
+Creates 3 sample issues with comments for demonstration.
+
+---
+
+## How to Call Endpoints
+
+Use any HTTP client:
+- **Browser:** Postman, Insomnia, or REST Client extensions
+- **Command line:** `curl -X POST http://localhost:5000/initialize-db`
+- **PowerShell:** `Invoke-WebRequest -Uri http://localhost:5000/initialize-db -Method POST`
+- **Python:** `requests.post('http://localhost:5000/initialize-db')`
+
 ---
 
 ## Default Credentials
-
-After loading seed data:
 
 - **Admin**: `admin@example.com` / `admin123`
 - **User**: `user@example.com` / `user123`
 
 ---
 
-## Project Structure
-
-```
-issue-tracker-backend/
-├── app/
-│   ├── __init__.py
-│   ├── config.py
-│   ├── models.py
-│   └── routes.py
-├── scripts/
-│   ├── init_db.py              # Create tables
-│   ├── populate_demo_data.py   # Add demo issues
-│   └── seed_initial_data.sql   # Initial data (local only)
-├── migrations/                  # Alembic (keep folder)
-├── database_schema.dbml         # DB diagram for dbdiagram.io
-├── .env                         # Environment variables (create this)
-└── run.py                       # Entry point
-```
-
----
-
 ## API Endpoints
 
+### Setup Endpoints (Call Once)
+- `GET /ping` - Health check
+- `POST /initialize-db` - Create tables and load initial data
+- `POST /add-demo-issues` - Add 3 demo issues with comments
+
+### Main Endpoints
 - `POST /api/register` - Register user
 - `POST /api/login` - Login
 - `GET /api/issues` - List issues
@@ -124,21 +131,36 @@ issue-tracker-backend/
 
 ---
 
-## Deployment (Render)
+## Why the `scripts/init_db.py` file?
 
-The app is deployed using HTTP endpoints (no shell needed):
+**Optional convenience script** that pre-creates empty tables before starting the server.
 
-1. Create PostgreSQL database on Render
-2. Deploy backend service
-3. Set environment variables in Render
-4. Call `POST https://your-backend.onrender.com/initialize-db` to setup
-5. Call `POST https://your-backend.onrender.com/add-demo-issues` for demo data
+- **Without it:** Just start the server and call `/initialize-db` - it will create tables AND load data
+- **With it:** Pre-create empty tables, then start server, then call `/initialize-db` to load data
+
+**You don't need to use it** - `/initialize-db` endpoint does everything. It's just there if you want to separate table creation from data loading.
+
+To use it:
+```powershell
+python scripts/init_db.py  # Creates empty tables
+flask db stamp head        # Marks migrations as done
+```
 
 ---
 
-## Database Schema
+## Project Structure
 
-View the schema: Copy `database_schema.dbml` content to https://dbdiagram.io/d
+```
+issue-tracker-backend/
+├── app/
+│   ├── routes.py        # Includes /initialize-db and /add-demo-issues
+│   ├── models.py        # Database models
+│   └── config.py
+├── scripts/
+│   └── init_db.py       # Optional: pre-create tables
+├── .env                 # Create this
+└── run.py
+```
 
 ---
 
@@ -147,8 +169,7 @@ View the schema: Copy `database_schema.dbml` content to https://dbdiagram.io/d
 **Database connection fails:**
 - Check PostgreSQL is running
 - Verify DATABASE_URL in `.env` file
-- Ensure port is 5432
 
 **Import errors:**
 - Activate virtual environment: `.\venv\Scripts\Activate.ps1`
-- Reinstall dependencies: `pip install -r requirements.txt`
+- Run: `pip install -r requirements.txt`
