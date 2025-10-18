@@ -45,6 +45,9 @@ def initialize_database():
     Call this once after deployment: POST https://your-backend.onrender.com/initialize-db
     """
     try:
+        # First, create all tables
+        db.create_all()
+        
         # Check if already initialized
         if Status.query.first():
             return jsonify({"status": "already_initialized", "message": "Database already has data"}), 200
